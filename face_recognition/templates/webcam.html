@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Face Recognition Webcam</title>
+    <style>
+      #videoElement {
+        width: 100%;
+        height: auto;
+      }
+      canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Webcam Face Recognition</h1>
+    <video id="videoElement" autoplay></video>
+    <canvas id="overlayCanvas"></canvas>
+
+    <!-- Menggunakan versi standalone dari face-api.js -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js?v=1"></script>
+
+    <script>
+      console.log("faceapi : ", faceapi);
+      const video = document.querySelector("#videoElement");
+
+      // Mengakses webcam
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          video.srcObject = stream;
+        })
+        .catch((err) => {
+          console.error("Error accessing webcam: ", err);
+        });
+
+      // Menunggu face-api.js untuk memuat model
+      Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(
+          "/static/models/ssdMobilenetv1_model-weights_manifest.json"
+        ),
+        faceapi.nets.faceLandmark68Net.loadFromUri(
+          "/static/models/face_landmark_68_model-weights_manifest.json"
+        ),
+        faceapi.nets.faceRecognitionNet.loadFromUri(
+          "/static/models/face_recognition_model-weights_manifest.json"
+        ),
+      ]).then(startFaceRecognition);
+
+      // Fungsi untuk memulai deteksi wajah
+      function startFaceRecognition() {
+        const canvas = document.getElementById("overlayCanvas");
+        const displaySize = { width: video.width, height: video.height };
+        faceapi.matchDimensions(canvas, displaySize);
+
+        // Deteksi wajah setiap frame
+        setInterval(async () => {
+          const detections = await faceapi
+            .detectAllFaces(video, new faceapi.SsdMobilenetv1Options())
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, canvas.width, canvas.height); // Membersihkan canvas
+
+          faceapi.draw.drawDetections(canvas, detections);
+          faceapi.draw.drawFaceLandmarks(canvas, detections);
+
+          console.log(detections); // Melihat hasil deteksi wajah di console
+        }, 100);
+      }
+    </script>
+  </body>
+</html>
