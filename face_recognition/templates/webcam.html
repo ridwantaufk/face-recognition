@@ -8,12 +8,33 @@
       #videoElement {
         width: 100%;
         height: auto;
+        position: absolute;
+        top: 0;
+        left: 0;
       }
+
       canvas {
         position: absolute;
         top: 0;
         left: 0;
         z-index: 1;
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+
+      h1 {
+        position: absolute;
+        z-index: 2;
+        margin-top: 20px;
+        text-align: center;
+        width: 100%;
+        font-size: 30px;
+        color: white;
       }
     </style>
   </head>
@@ -22,14 +43,12 @@
     <video id="videoElement" autoplay></video>
     <canvas id="overlayCanvas"></canvas>
 
-    <!-- Menggunakan versi standalone dari face-api.js -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js?v=1"></script>
 
     <script>
-      console.log("faceapi : ", faceapi);
       const video = document.querySelector("#videoElement");
+      const canvas = document.getElementById("overlayCanvas");
 
-      // Mengakses webcam
       navigator.mediaDevices
         .getUserMedia({ video: true })
         .then((stream) => {
@@ -39,7 +58,7 @@
           console.error("Error accessing webcam: ", err);
         });
 
-      // Menunggu face-api.js untuk memuat model
+      // Memuat model
       Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(
           "/static/models/ssdMobilenetv1_model-weights_manifest.json"
@@ -50,29 +69,71 @@
         faceapi.nets.faceRecognitionNet.loadFromUri(
           "/static/models/face_recognition_model-weights_manifest.json"
         ),
-      ]).then(startFaceRecognition);
+        faceapi.nets.ageGenderNet.loadFromUri(
+          "/static/models/age_gender_model-weights_manifest.json"
+        ),
+        faceapi.nets.faceExpressionNet.loadFromUri(
+          // Menambahkan model ekspresi wajah
+          "/static/models/face_expression_model-weights_manifest.json"
+        ),
+      ])
+        .then(startFaceRecognition)
+        .catch((err) => console.error("Model loading failed", err));
 
-      // Fungsi untuk memulai deteksi wajah
       function startFaceRecognition() {
-        const canvas = document.getElementById("overlayCanvas");
-        const displaySize = { width: video.width, height: video.height };
-        faceapi.matchDimensions(canvas, displaySize);
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
 
-        // Deteksi wajah setiap frame
-        setInterval(async () => {
-          const detections = await faceapi
-            .detectAllFaces(video, new faceapi.SsdMobilenetv1Options())
-            .withFaceLandmarks()
-            .withFaceDescriptors();
+          const displaySize = {
+            width: canvas.width,
+            height: canvas.height,
+          };
+          faceapi.matchDimensions(canvas, displaySize);
 
-          const ctx = canvas.getContext("2d");
-          ctx.clearRect(0, 0, canvas.width, canvas.height); // Membersihkan canvas
+          setInterval(async () => {
+            const detections = await faceapi
+              .detectAllFaces(video, new faceapi.SsdMobilenetv1Options())
+              .withFaceLandmarks()
+              .withFaceDescriptors()
+              .withAgeAndGender()
+              .withFaceExpressions(); // Menambahkan deteksi ekspresi wajah
 
-          faceapi.draw.drawDetections(canvas, detections);
-          faceapi.draw.drawFaceLandmarks(canvas, detections);
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          console.log(detections); // Melihat hasil deteksi wajah di console
-        }, 100);
+            faceapi.draw.drawDetections(canvas, detections);
+            faceapi.draw.drawFaceLandmarks(canvas, detections);
+
+            detections.forEach((detection) => {
+              const { age, gender } = detection;
+              const text = `${Math.round(age)} years old, ${gender}`;
+              const box = detection.detection.box;
+              const x = box.x + box.width / 2;
+              const y = box.y - 10;
+
+              ctx.font = "20px Arial";
+              ctx.fillStyle = "white";
+              ctx.fillText(text, x, y);
+
+              // Menampilkan emosi pada wajah
+              const emotions = detection.expressions;
+              const emotionText = `Emotion: ${getDominantEmotion(emotions)}`;
+              const emotionY = y + 30; // Tempatkan sedikit lebih rendah
+              ctx.fillText(emotionText, x, emotionY);
+            });
+
+            console.log(detections); // Melihat hasil deteksi di console
+          }, 100);
+        };
+      }
+
+      // Fungsi untuk mendapatkan emosi dominan
+      function getDominantEmotion(emotions) {
+        const maxEmotion = Object.entries(emotions).reduce((a, b) =>
+          a[1] > b[1] ? a : b
+        );
+        return maxEmotion[0]; // Mengembalikan emosi dominan
       }
     </script>
   </body>
