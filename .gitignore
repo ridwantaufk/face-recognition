@@ -1,55 +1,5 @@
-# Python
-*.pyc
-*.pyo
-*.pyd
-__pycache__
-*.so
-*.dylib
-*.egg
-*.egg-info
-dist
-build
-
-# Virtual Environment
 venv/
-.env/
-.venv/
-env/
-ENV/
-
-# Django specific
-db.sqlite3            # SQLite database
-/static/
-media/
-
-# pycharm, vscode, dan editor lain
-.vscode/
-.idea/
-
-# macOS Finder folder
-.DS_Store
-
-# Log files
-*.log
-
-# Configuration files
-*.env
-
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-
-# coverage.py report
-.coverage
-.coverage.*
-nosetests.xml
-test-results/
-
-# Django migrations
-migrations/
-
-# .env file containing sensitive data (secrets)
+__pycache__/
+db.sqlite3
+staticfiles/
 .env
-
-# Other Python-specific caches and temp files
-*.bak
-*.swp
